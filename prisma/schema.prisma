@@ -1,0 +1,186 @@
+// ==========================================================
+// LinkHub - Schema Prisma
+// Tudo que aparece no dashboard é configurável a partir daqui.
+// Nenhum conteúdo de exemplo deve ser hardcoded no código-fonte:
+// use prisma/seed.ts (dados no banco) para popular exemplos.
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemType {
+  APP
+  LINK
+}
+
+enum ThemeMode {
+  LIGHT
+  DARK
+  AUTO
+}
+
+enum MobileLayout {
+  LIST
+  GRID
+}
+
+// ----------------------------------------------------------
+// Categorias
+// ----------------------------------------------------------
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  icon      String?
+  order     Int        @default(0)
+  visible   Boolean    @default(true)
+  items     HubItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+// ----------------------------------------------------------
+// Aplicativos e Links personalizados (modelo unificado)
+// "type" diferencia Aplicativo de Link, mas ambos compartilham
+// a mesma estrutura flexível para permitir cadastrar qualquer
+// coisa: site, servidor, documento, sistema, serviço etc.
+// ----------------------------------------------------------
+model HubItem {
+  id           String    @id @default(cuid())
+  type         ItemType  @default(APP)
+  name         String
+  description  String?
+  icon         String?
+  image        String?
+  internalUrl  String?
+  externalUrl  String?
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  order        Int       @default(0)
+  visible      Boolean   @default(true)
+  active       Boolean   @default(true)
+  cardSize     String?   // ex: "small" | "medium" | "large"
+  cardColor    String?   // cor/acento do card
+  openInNewTab Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("hub_items")
+}
+
+// ----------------------------------------------------------
+// Cabeçalho
+// ----------------------------------------------------------
+model HeaderConfig {
+  id               Int     @id @default(1)
+  hubName          String  @default("LinkHub")
+  logoUrl          String?
+  iconUrl          String?
+  headerText       String?
+  backgroundImage  String?
+  showLogo         Boolean @default(true)
+  showName         Boolean @default(true)
+
+  @@map("header_config")
+}
+
+// ----------------------------------------------------------
+// Pesquisa
+// ----------------------------------------------------------
+model SearchConfig {
+  id              Int     @id @default(1)
+  showSearch      Boolean @default(true)
+  placeholderText String  @default("Pesquisar serviços...")
+
+  @@map("search_config")
+}
+
+// ----------------------------------------------------------
+// Seletor Interno / Externo
+// ----------------------------------------------------------
+model ToggleConfig {
+  id            Int     @id @default(1)
+  showToggle    Boolean @default(true)
+  internalLabel String  @default("Interno")
+  externalLabel String  @default("Externo")
+  internalIcon  String  @default("🏠")
+  externalIcon  String  @default("🌐")
+
+  @@map("toggle_config")
+}
+
+// ----------------------------------------------------------
+// Menu
+// ----------------------------------------------------------
+model MenuItem {
+  id        String   @id @default(cuid())
+  name      String
+  icon      String?
+  url       String?
+  order     Int      @default(0)
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("menu_items")
+}
+
+// ----------------------------------------------------------
+// Tema
+// ----------------------------------------------------------
+model ThemeConfig {
+  id             Int       @id @default(1)
+  mode           ThemeMode @default(AUTO)
+  primaryColor   String    @default("#6366f1")
+  accentColor    String    @default("#22d3ee")
+  backgroundColor String   @default("#0f172a")
+  cardColor      String    @default("#1e293b")
+  textColor      String    @default("#f8fafc")
+  borderColor    String    @default("#334155")
+  cardRadius     Int       @default(12)
+
+  @@map("theme_config")
+}
+
+// ----------------------------------------------------------
+// Layout
+// ----------------------------------------------------------
+model LayoutConfig {
+  id              Int          @id @default(1)
+  desktopColumns  Int          @default(4)
+  tabletColumns   Int          @default(2)
+  mobileLayout    MobileLayout @default(LIST)
+  spacing         Int          @default(16)
+  iconSize        Int          @default(32)
+  cardSize        String       @default("medium")
+  cardRadius      Int          @default(12)
+  showDescription Boolean      @default(true)
+  showCategory    Boolean      @default(true)
+
+  @@map("layout_config")
+}
+
+// ----------------------------------------------------------
+// Página inicial
+// ----------------------------------------------------------
+model HomePageConfig {
+  id              Int     @id @default(1)
+  pageName        String  @default("LinkHub")
+  title           String?
+  subtitle        String?
+  logoUrl         String?
+  backgroundImage String?
+  backgroundColor String?
+  showCategories  Boolean @default(true)
+  showSearch      Boolean @default(true)
+  showToggle      Boolean @default(true)
+
+  @@map("home_page_config")
+}

@@ -1,0 +1,59 @@
+# ==========================================================
+# LinkHub — Custom App para TrueNAS SCALE (Install via YAML)
+# ==========================================================
+#
+# Como usar:
+#   1. No TrueNAS: Apps -> Discover Apps -> (⋮ três pontinhos) -> Install via YAML
+#   2. Dê um nome ao app no campo "Application Name" (ex: linkhub)
+#   3. Cole TODO este arquivo no editor de YAML
+#   4. Troque CHANGE_ME_STRONG_PASSWORD (aparece 2x) por uma senha forte
+#      IGUAL nos dois lugares
+#   5. Ajuste a imagem "image:" do serviço linkhub-app para a sua (veja
+#      README.md -> seção "Build e publicação da imagem")
+#   6. Ajuste os caminhos "/data/..." se seu dataset não estiver montado
+#      literalmente em /data (normalmente é /mnt/<pool>/<dataset>/...)
+#   7. Salve. O TrueNAS faz o "docker compose up -d" para você.
+#
+# Persistência: tudo que precisa sobreviver a updates/reinícios do
+# container fica em bind mounts sob /data — nada de estado dentro
+# do container.
+
+name: linkhub
+
+services:
+  linkhub-db:
+    image: postgres:16-alpine
+    container_name: linkhub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: linkhub
+      POSTGRES_PASSWORD: CHANGE_ME_STRONG_PASSWORD
+      POSTGRES_DB: linkhub
+    volumes:
+      - /data/linkhub/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  linkhub-app:
+    # Substitua pela imagem publicada (ver README.md). Exemplos:
+    #   ghcr.io/SEU_USUARIO/linkhub:latest        (GitHub Container Registry)
+    #   docker.io/SEU_USUARIO/linkhub:latest      (Docker Hub)
+    image: ghcr.io/SEU_USUARIO/linkhub:latest
+    container_name: linkhub-app
+    restart: unless-stopped
+    depends_on:
+      linkhub-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://linkhub:CHANGE_ME_STRONG_PASSWORD@linkhub-db:5432/linkhub?schema=public
+      NODE_ENV: production
+      # Se algum dia adicionar upload de imagens, aponte para /data também:
+      # UPLOADS_DIR: /app/public/uploads
+    volumes:
+      - /data/linkhub/uploads:/app/public/uploads
+    ports:
+      # host:container — mude a porta do HOST (3050) se já estiver em uso
+      - "3050:3000"
