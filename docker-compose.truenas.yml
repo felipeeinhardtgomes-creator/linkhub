@@ -39,9 +39,9 @@ services:
 
   linkhub-app:
     # Substitua pela imagem publicada (ver README.md). Exemplos:
-    #   ghcr.io/SEU_USUARIO/linkhub:latest        (GitHub Container Registry)
+    #   ghcr.io/felipeeinhardtgomes-creator/linkhub:latest        (GitHub Container Registry)
     #   docker.io/SEU_USUARIO/linkhub:latest      (Docker Hub)
-    image: ghcr.io/SEU_USUARIO/linkhub:latest
+    image: ghcr.io/felipeeinhardtgomes-creator/linkhub:latest
     container_name: linkhub-app
     restart: unless-stopped
     depends_on:
@@ -50,10 +50,10 @@ services:
     environment:
       DATABASE_URL: postgresql://linkhub:CHANGE_ME_STRONG_PASSWORD@linkhub-db:5432/linkhub?schema=public
       NODE_ENV: production
-      # Se algum dia adicionar upload de imagens, aponte para /data também:
-      # UPLOADS_DIR: /app/public/uploads
+      # Diretório reservado para uploads persistentes, caso o app passe a usá-los.
+      UPLOADS_DIR: /app/uploads
     volumes:
-      - /data/linkhub/uploads:/app/public/uploads
+      - /data/linkhub/uploads:/app/uploads
     ports:
       # host:container — mude a porta do HOST (3050) se já estiver em uso
       - "3050:3000"
