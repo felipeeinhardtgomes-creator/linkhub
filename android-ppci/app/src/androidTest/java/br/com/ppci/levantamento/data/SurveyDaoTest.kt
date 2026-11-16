@@ -49,4 +49,14 @@ class SurveyDaoTest {
         val row = db.surveyDao().observeAllWithCount().first().single()
         assertEquals(3, row.markerCount); assertEquals(2, row.budgetCount)
     }
+
+    @Test fun recentSpecsRankByUseAndIgnoreBlankAndOtherCategories() = runBlocking {
+        val sid = db.surveyDao().insert(survey())
+        fun m(cat: Category, spec: String) = marker(sid, ItemStatus.MISSING).copy(category = cat, spec = spec)
+        db.markerDao().insertAll(listOf(
+            m(Category.EXTINGUISHER, "PQS ABC 6kg"), m(Category.EXTINGUISHER, "CO2 4kg"), m(Category.EXTINGUISHER, "PQS ABC 6kg"),
+            m(Category.EXTINGUISHER, ""), m(Category.SIGN, "Saída S1")
+        ))
+        assertEquals(listOf("PQS ABC 6kg", "CO2 4kg"), db.markerDao().recentSpecs(Category.EXTINGUISHER.name).first())
+    }
 }

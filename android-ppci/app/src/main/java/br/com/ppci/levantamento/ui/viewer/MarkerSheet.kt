@@ -29,6 +29,9 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.Flow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,6 +66,7 @@ fun MarkerSheet(
     currentStatus: ItemStatus?,
     newPhotoFile: () -> File,
     shrinkPhoto: suspend (String) -> Unit,
+    recentSpecs: (Category) -> Flow<List<String>>,
     onSave: (Category, String, ItemStatus, String, String?) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit
@@ -79,6 +83,10 @@ fun MarkerSheet(
         if (ok && path != null) scope.launch { shrinkPhoto(path); photo = path } // reduz antes de anexar
     }
 
+    // Primeiro o que o técnico já usou nesta categoria; depois os nomes padrão do mercado. Sem legenda na planta, o catálogo vem do uso.
+    val recents by remember(category) { recentSpecs(category) }.collectAsState(emptyList())
+    val suggestions = (recents + category.subtypes).distinct()
+
     fun save(s: ItemStatus) = onSave(category, spec.trim(), s, note.trim(), photo)
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -91,8 +99,8 @@ fun MarkerSheet(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Category.values().forEach { c -> FilterChip(selected = category == c, onClick = { category = c }, label = { Text(c.short) }) }
             }
-            if (category.subtypes.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                category.subtypes.forEach { s -> SuggestionChip(onClick = { spec = s }, label = { Text(s) }) }
+            if (suggestions.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                suggestions.forEach { s -> SuggestionChip(onClick = { spec = s }, label = { Text(s) }) }
             }
             OutlinedTextField(spec, { spec = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.spec_label)) }, singleLine = true)
             OutlinedTextField(note, { note = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.note_label)) }, minLines = 2)

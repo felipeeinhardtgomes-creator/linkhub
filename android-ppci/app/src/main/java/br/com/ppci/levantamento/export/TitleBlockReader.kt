@@ -18,22 +18,20 @@ import java.io.File
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class TitleBlock(val client: String = "", val site: String = "", val technician: String = "") {
-    val isEmpty get() = client.isBlank() && site.isBlank() && technician.isBlank()
-}
-
 /**
  * Tenta preencher Cliente / Obra / Responsável a partir do carimbo da prancha.
- * 1) Texto vetorial (PDFs exportados do AutoCAD costumam ter texto real): PDFBox, só a página 1, com buffer em disco.
- * 2) Se não achar nada (carimbo "explodido" em linhas ou PDF escaneado): OCR offline (ML Kit) no canto inferior direito.
- * É sempre uma sugestão: o técnico confere e edita antes de iniciar.
+ * 1) Texto do PDF (PDFBox, só a página 1, buffer em disco). Nas 3 plantas reais testadas quase tudo do carimbo
+ *    NÃO é texto (fonte de traço do AutoCAD), então este caminho raramente basta.
+ * 2) OCR offline (ML Kit) em uma região ampla da folha.
+ * 3) Sempre que errar: o técnico usa "Ler carimbo desta tela" depois de aproximar o zoom do carimbo.
+ * É só sugestão: o técnico confere e edita.
  */
 class TitleBlockReader(private val ctx: Context) {
 
     suspend fun read(file: File): TitleBlock = withContext(Dispatchers.IO) {
-        val fromText = runCatching { parse(extractText(file)) }.getOrDefault(TitleBlock())
+        val fromText = runCatching { TitleBlockParser.parse(extractText(file)) }.getOrDefault(TitleBlock())
         if (!fromText.isEmpty) return@withContext fromText
-        runCatching { parse(ocrCorner(file)) }.getOrDefault(TitleBlock())
+        runCatching { TitleBlockParser.parse(ocrWholeSheetRegion(file)) }.getOrDefault(TitleBlock())
     }
 
     private fun extractText(file: File): String =
@@ -41,30 +39,22 @@ class TitleBlockReader(private val ctx: Context) {
             PDFTextStripper().apply { startPage = 1; endPage = 1 }.getText(d)
         }
 
-    private suspend fun ocrCorner(file: File): String {
+    /**
+     * Nas plantas reais o carimbo ficou no canto (A0 cheia) ou no meio-direita (folha com margem grande), e os
+     * valores (cliente, endereço) vêm em fonte de traço única do AutoCAD: não são texto no PDF, só o OCR lê.
+     * Por isso o fallback cobre a metade direita da folha, em 3000 px de largura.
+     */
+    private suspend fun ocrWholeSheetRegion(file: File): String {
         val src = PdfPageSource.open(file, 0)
-        try {
-            // Canto inferior direito (onde fica o carimbo), em ~2000 px para o OCR ler texto pequeno.
-            val region = NormRect(0.55f, 0.70f, 1f, 1f)
-            val bmp: Bitmap = src.renderRegion(region, 1800, (1800 * (region.height * src.pageHeightPt) / (region.width * src.pageWidthPt)).toInt().coerceAtLeast(200)) ?: return ""
-            val rec = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            return try { rec.process(InputImage.fromBitmap(bmp, 0)).await().text } finally { rec.close(); bmp.recycle() }
-        } finally { src.close() }
+        try { return ocrRegion(src, NormRect(0.45f, 0.25f, 1f, 1f), 3000) } finally { src.close() }
     }
 
-    private fun parse(raw: String): TitleBlock {
-        val txt = raw.replace(Regex("\\s+"), " ")
-        return TitleBlock(
-            client = grab(txt, "Cliente", "Propriet[aá]rio"),
-            site = grab(txt, "Obra", "Endere[cç]o", "Local"),
-            technician = grab(txt, "Respons[aá]vel T[eé]cnico", "Resp\\. T[eé]c\\.", "RT")
-        )
-    }
-
-    private fun grab(txt: String, vararg labels: String): String {
-        val stop = "(?=\\s(?:Cliente|Obra|Endere[cç]o|Respons[aá]vel|CREA|Prancha|Escala|Data|Projeto|Folha|Formato|Desenho|Revis[aã]o)\\b|$)"
-        for (l in labels) Regex("$l\\s*[:\\-]\\s*(.{3,90}?)$stop", RegexOption.IGNORE_CASE).find(txt)?.let { return it.groupValues[1].trim() }
-        return ""
+    /** OCR de uma região qualquer da página (usado também por "Ler carimbo desta tela"). */
+    suspend fun ocrRegion(src: PdfPageSource, region: NormRect, widthPx: Int): String {
+        val h = (widthPx * (region.height * src.pageHeightPt) / (region.width * src.pageWidthPt)).toInt().coerceIn(200, 4000)
+        val bmp: Bitmap = src.renderRegion(region, widthPx, h) ?: return ""
+        val rec = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        return try { rec.process(InputImage.fromBitmap(bmp, 0)).await().text } finally { rec.close(); bmp.recycle() }
     }
 
     private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { c ->

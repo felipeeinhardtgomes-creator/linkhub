@@ -12,6 +12,10 @@ import br.com.ppci.levantamento.domain.Counts
 import br.com.ppci.levantamento.domain.ItemStatus
 import br.com.ppci.levantamento.export.CsvExporter
 import br.com.ppci.levantamento.export.ReportPdfWriter
+import br.com.ppci.levantamento.export.TitleBlock
+import br.com.ppci.levantamento.export.TitleBlockParser
+import br.com.ppci.levantamento.export.TitleBlockReader
+import br.com.ppci.levantamento.pdf.NormRect
 import br.com.ppci.levantamento.pdf.PdfPageSource
 import br.com.ppci.levantamento.util.PhotoUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -80,6 +84,8 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    fun recentSpecs(c: br.com.ppci.levantamento.domain.Category) = repo.recentSpecs(c)
+
     fun save(m: MarkerEntity) { viewModelScope.launch { repo.upsert(m) } }
     fun delete(m: MarkerEntity) { viewModelScope.launch { repo.delete(m) } }
 
@@ -113,6 +119,22 @@ class ViewerViewModel @Inject constructor(
                 File(exportsDir(), "relatorio_ppci_${stamp(s)}.pdf").also { ReportPdfWriter().write(it, s, list, plans) }
             }
         } finally { plans.values.forEach { it.recycle() } }
+    }
+
+    /**
+     * "Ler carimbo desta tela": OCR só da região visível (o técnico aproxima o zoom do carimbo antes).
+     * Nas plantas reais os valores do carimbo são fonte de traço, então esta é a via confiável. Preenche os campos
+     * do levantamento que o OCR reconheceu e devolve o que leu para o técnico conferir.
+     */
+    suspend fun readTitleBlock(region: NormRect): TitleBlock {
+        val src = source.value ?: return TitleBlock()
+        val s = survey.value ?: return TitleBlock()
+        val r = NormRect(region.left.coerceAtLeast(0f), region.top.coerceAtLeast(0f), region.right.coerceAtMost(1f), region.bottom.coerceAtMost(1f))
+        if (r.width <= 0f || r.height <= 0f) return TitleBlock()
+        val text = runCatching { TitleBlockReader(app).ocrRegion(src, r, 2400) }.getOrDefault("")
+        val tb = TitleBlockParser.parse(text)
+        if (!tb.isEmpty) repo.updateSurvey(s.copy(client = tb.client.ifBlank { s.client }, site = tb.site.ifBlank { s.site }, technician = tb.technician.ifBlank { s.technician }))
+        return tb
     }
 
     suspend fun exportBackup(): File? = surveyId.value?.let { backup.export(it) }

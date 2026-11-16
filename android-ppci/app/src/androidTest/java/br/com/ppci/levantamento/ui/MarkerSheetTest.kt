@@ -27,13 +27,13 @@ class MarkerSheetTest {
             PpciTheme {
                 MarkerSheet(
                     number = 3, initialCategory = Category.EXTINGUISHER, initialSpec = "", initialNote = "", initialPhoto = null, currentStatus = null,
-                    newPhotoFile = { File.createTempFile("p", ".jpg") }, shrinkPhoto = {},
+                    newPhotoFile = { File.createTempFile("p", ".jpg") }, shrinkPhoto = {}, recentSpecs = { kotlinx.coroutines.flow.flowOf(listOf("PQS ABC 6kg (usado antes)")) },
                     onSave = { c, s, st, n, p -> saved = listOf(c, s, st, n, p) }, onDelete = null, onDismiss = {}
                 )
             }
         }
-        rule.onNodeWithText("ABC 6kg").performClick() // chip de especificação rápida
+        rule.onNodeWithText("PQS ABC 6kg (usado antes)").performClick() // chip aprendido do uso, sem depender de legenda
         rule.onNodeWithText(ctx.getString(R.string.status_missing_btn)).performClick()
-        assertEquals(listOf(Category.EXTINGUISHER, "ABC 6kg", ItemStatus.MISSING, "", null), saved)
+        assertEquals(listOf(Category.EXTINGUISHER, "PQS ABC 6kg (usado antes)", ItemStatus.MISSING, "", null), saved)
     }
 }

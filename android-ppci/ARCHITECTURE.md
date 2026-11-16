@@ -163,3 +163,24 @@ Não há teste de migração ainda porque só existe a versão 1 do esquema.
 5. **Textos:** a interface está em `strings.xml` (pt-BR). Rótulos de domínio usados nos documentos (categorias, status, cabeçalhos de CSV/PDF) ficam no código de propósito, porque são terminologia do orçamento e não texto de tela; para traduzir, mova-os junto.
 6. **Foto da câmera:** o arquivo grande existe por instantes antes de ser reduzido; se o app for encerrado nesse intervalo fica uma foto grande órfã (sem impacto funcional).
 7. **Backup:** exporta um levantamento por vez; não há backup automático em nuvem (de propósito, o app é offline).
+
+## 10. O que as plantas reais mostraram
+
+Análise de 3 pranchas A0 reais (AutoCAD 2018/2020/2025, PPCI de uma unidade industrial e de um galpão comercial):
+
+| Achado | Consequência no app |
+|---|---|
+| **Todas A0, 2384 × 3370 pt, com `/Rotate 270`** (retrato no arquivo, paisagem na tela) | O app usa `page.width/height` do `PdfRenderer`, que já considera a rotação. **Falta confirmar em aparelho:** `RealPlansTest` falha se a página vier em retrato. |
+| **Vetoriais**, 1 página, 450–750 KB | Perfeito para renderização por região. Em poppler (servidor), um tile 512 px a 15x levou 44–160 ms; em tablet espere várias vezes isso. |
+| **Cliente, endereço e responsável NÃO são texto**: o AutoCAD plotou a fonte de traço única como linhas | O caminho PDFBox quase nunca preenche o carimbo. OCR passou a ser o caminho principal (região ampla, 3000 px) e há "Ler carimbo desta tela" (menu de exportar) para o técnico aproximar o zoom e ler na hora. |
+| **O carimbo muda de lugar**: canto inferior direito em duas pranchas; no meio-direita em outra (folha com margem grande) | Região do OCR cobre a metade direita da folha, não só o canto. |
+| **As legendas trazem a nomenclatura real** (PQS BC/ABC, CO2 BC, AP A, ESP AB, sobre rodas; hidrante 1/2 saídas + mangotinho; botoeira quebra-vidro, sirene, sensor de fumaça/temperatura; balizamento; barra antipânico, porta corta-fogo, válvula de bloqueio, reserva técnica) | Os chips de especificação rápida (`Model.kt`) usam esses nomes. |
+| **Centenas de símbolos por prancha** | Marcar um a um é lento. Ideia, ainda não implementada: detectar os símbolos pela cor/forma, ou marcar em lote por região. |
+
+O interpretador do carimbo (`TitleBlockParser`) é testado em JVM com trechos desses carimbos (rótulos sem dois-pontos, `RESP. TECNICO:NOME` colado, CREA em outra linha, legenda sem falsos positivos).
+**O OCR em si (ML Kit) não foi testado em fonte de traço fina**, só o interpretador. Esse é o próximo teste em aparelho.
+
+### Premissas que NÃO podem ser assumidas (correção do uso real)
+
+- **O cliente pode não estar na planta**, e o carimbo pode não ser legível. Por isso Cliente, Obra e Responsável são **opcionais** em todo o fluxo: o botão "Iniciar" só exige a planta; a leitura do carimbo roda em **segundo plano** depois da importação, só preenche campos vazios e nunca atrasa nem bloqueia o técnico. Relatório e CSV mostram "—" nos campos vazios, e os nomes de arquivo caem em "obra".
+- **A planta geralmente não tem legenda.** A lista de especificações do menu de marcação não pode depender dela: os chips mostram **primeiro o que o próprio técnico já usou naquela categoria** (as 8 especificações mais frequentes em todos os levantamentos, por contagem e recência) e depois nomes padrão de mercado (`Model.kt`). Em poucas visitas o catálogo passa a refletir o vocabulário real da empresa, sem cadastro prévio.

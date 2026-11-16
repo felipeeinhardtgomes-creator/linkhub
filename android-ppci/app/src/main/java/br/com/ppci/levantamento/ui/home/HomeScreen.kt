@@ -82,14 +82,18 @@ class HomeViewModel @Inject constructor(
     suspend fun savedTechnician() = settings.technicianFlow.first()
 
     fun onPlanPicked(uri: Uri) = viewModelScope.launch {
-        _loading.value = true; _error.value = false
-        runCatching {
+        _loading.value = true; _error.value = false; _detected.value = null
+        val f = runCatching {
             _pdf.value?.delete() // descarta a importação anterior que não virou levantamento
-            val f = repo.importPlan(uri) // PDF ou imagem (convertida em PDF)
-            _pdf.value = f
-            _detected.value = TitleBlockReader(ctx).read(f) // sugestão a partir do carimbo; o técnico confere
-        }.onFailure { _error.value = true }
-        _loading.value = false
+            repo.importPlan(uri) // PDF ou imagem (convertida em PDF)
+        }.onFailure { _error.value = true }.getOrNull()
+        _pdf.value = f
+        _loading.value = false // o técnico já pode iniciar: cliente, obra e RT são opcionais
+        if (f != null) launch {
+            // Sugestão em segundo plano, só preenche campos ainda vazios. Pode não achar nada: o carimbo muitas vezes
+            // não tem o cliente, ou vem em fonte de traço que nem o PDF nem o OCR garantem ler.
+            _detected.value = runCatching { TitleBlockReader(ctx).read(f) }.getOrNull()
+        }
     }
 
     fun onBackupPicked(uri: Uri, onDone: (Long) -> Unit) = viewModelScope.launch {

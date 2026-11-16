@@ -19,7 +19,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledIconButton
@@ -47,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import br.com.ppci.levantamento.R
 import br.com.ppci.levantamento.data.MarkerEntity
 import br.com.ppci.levantamento.domain.Category
+import br.com.ppci.levantamento.export.TitleBlock
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -66,6 +69,7 @@ fun ViewerScreen(surveyId: Long, onBack: () -> Unit, vm: ViewerViewModel = hiltV
     var lastCategory by remember { mutableStateOf(Category.EXTINGUISHER) }
     var menu by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var stamp by remember { mutableStateOf<TitleBlock?>(null) }
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
 
@@ -89,6 +93,11 @@ fun ViewerScreen(surveyId: Long, onBack: () -> Unit, vm: ViewerViewModel = hiltV
                     if (busy) CircularProgressIndicator(Modifier.padding(12.dp), strokeWidth = 2.dp)
                     else IconButton(onClick = { menu = true }) { Icon(Icons.Filled.IosShare, stringResource(R.string.export)) }
                     DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem({ Text(stringResource(R.string.read_stamp)) }, {
+                            val src = source ?: return@DropdownMenuItem
+                            menu = false; busy = true
+                            scope.launch { try { stamp = vm.readTitleBlock(viewer.visibleRegion(src.aspect)) } finally { busy = false } }
+                        })
                         DropdownMenuItem({ Text(stringResource(R.string.export_pdf)) }, { exporting(vm::exportPdf, "application/pdf") })
                         DropdownMenuItem({ Text(stringResource(R.string.export_csv_items)) }, { exporting({ vm.exportCsv(false) }, "text/csv") })
                         DropdownMenuItem({ Text(stringResource(R.string.export_csv_grouped)) }, { exporting({ vm.exportCsv(true) }, "text/csv") })
@@ -136,6 +145,15 @@ fun ViewerScreen(surveyId: Long, onBack: () -> Unit, vm: ViewerViewModel = hiltV
         }
     }
 
+    stamp?.let { tb ->
+        AlertDialog(
+            onDismissRequest = { stamp = null },
+            title = { Text(stringResource(R.string.stamp_title)) },
+            text = { Text(if (tb.isEmpty) stringResource(R.string.stamp_none) else stringResource(R.string.stamp_result, tb.client.ifBlank { "—" }, tb.site.ifBlank { "—" }, tb.technician.ifBlank { "—" })) },
+            confirmButton = { TextButton({ stamp = null }) { Text(stringResource(R.string.ok)) } }
+        )
+    }
+
     editing?.let { e ->
         val existing = markers.firstOrNull { it.id == e.markerId }
         MarkerSheet(
@@ -147,6 +165,7 @@ fun ViewerScreen(surveyId: Long, onBack: () -> Unit, vm: ViewerViewModel = hiltV
             currentStatus = existing?.status,
             newPhotoFile = vm::newPhotoFile,
             shrinkPhoto = vm::shrinkPhoto,
+            recentSpecs = vm::recentSpecs,
             onSave = { cat, spec, status, note, photo ->
                 lastCategory = cat
                 val base = existing ?: MarkerEntity(surveyId = surveyId, page = page, x = e.x, y = e.y, category = cat, status = status, createdAt = System.currentTimeMillis())

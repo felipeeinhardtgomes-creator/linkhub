@@ -53,4 +53,11 @@
     <string name="status_missing_btn">NÃO TEM — Orçar fornecimento + instalação</string>
     <string name="status_irregular_btn">IRREGULAR — Orçar manutenção / troca</string>
     <string name="status_ok_btn">TEM / OK — Existente (não orçar)</string>
+
+    <!-- Leitura do carimbo -->
+    <string name="read_stamp">Ler carimbo desta tela</string>
+    <string name="stamp_title">Carimbo lido</string>
+    <string name="stamp_result">Cliente: %1$s\nObra: %2$s\nResponsável: %3$s\n\nConfira e edite na tela inicial se algo estiver errado.</string>
+    <string name="stamp_none">Nada reconhecido. Aproxime o zoom do carimbo até o texto ocupar boa parte da tela e tente de novo.</string>
+    <string name="ok">OK</string>
 </resources>

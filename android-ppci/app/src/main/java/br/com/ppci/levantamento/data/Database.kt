@@ -48,6 +48,9 @@ interface MarkerDao {
     /** A numeração (#1, #2...) é a posição nesta lista, ordenada por id, em todas as pranchas. */
     @Query("SELECT * FROM marker WHERE surveyId = :surveyId ORDER BY id") fun observe(surveyId: Long): Flow<List<MarkerEntity>>
     @Query("SELECT * FROM marker WHERE surveyId = :surveyId ORDER BY id") suspend fun list(surveyId: Long): List<MarkerEntity>
+    /** Especificações que o técnico mais digitou nesta categoria (em qualquer levantamento): o catálogo aprende com o uso. */
+    @Query("SELECT spec FROM marker WHERE category = :category AND spec != '' GROUP BY spec ORDER BY COUNT(*) DESC, MAX(id) DESC LIMIT 8")
+    fun recentSpecs(category: String): Flow<List<String>>
     @Upsert suspend fun upsert(marker: MarkerEntity): Long
     @Insert suspend fun insertAll(markers: List<MarkerEntity>)
     @Delete suspend fun delete(marker: MarkerEntity)
@@ -73,6 +76,8 @@ class SurveyRepository @Inject constructor(
     fun observeAll() = surveys.observeAllWithCount()
     fun observeMarkers(surveyId: Long) = markers.observe(surveyId)
     suspend fun markerList(surveyId: Long) = markers.list(surveyId)
+    suspend fun updateSurvey(s: SurveyEntity) = surveys.update(s)
+    fun recentSpecs(c: br.com.ppci.levantamento.domain.Category) = markers.recentSpecs(c.name)
     suspend fun upsert(m: MarkerEntity) = markers.upsert(m)
     suspend fun delete(m: MarkerEntity) {
         markers.delete(m)
