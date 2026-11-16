@@ -41,7 +41,7 @@ class ReportPdfWriter {
     private var pageNo = 0
     private lateinit var title: String
 
-    fun write(out: File, survey: SurveyEntity, markers: List<MarkerEntity>, planBitmap: Bitmap) {
+    fun write(out: File, survey: SurveyEntity, markers: List<MarkerEntity>, plans: Map<Int, Bitmap>) {
         doc = PdfDocument(); title = survey.company
         newPage()
         header(survey)
@@ -57,19 +57,22 @@ class ReportPdfWriter {
         table(listOf("Categoria", "Especificação", "Qtd."), floatArrayOf(205f, 258f, 60f),
             groups.filter { it.ok > 0 }.map { listOf(it.category.label, it.spec.ifBlank { "Não especificado" }, it.ok.toString()) }, rightFrom = 2)
 
-        // Planta anotada em página própria
-        newPage(); section("3. Planta anotada")
-        val scale = min(cw / planBitmap.width, (H - y - M - 30f) / planBitmap.height)
-        val pw = planBitmap.width * scale; val ph = planBitmap.height * scale; val px = M + (cw - pw) / 2f
-        cv.drawBitmap(planBitmap, null, android.graphics.RectF(px, y, px + pw, y + ph), Paint(Paint.FILTER_BITMAP_FLAG))
-        cv.drawRect(px, y, px + pw, y + ph, Paint().apply { style = Paint.Style.STROKE; color = line.color; strokeWidth = 0.7f })
-        markers.forEachIndexed { i, m -> pin(px + m.x * pw, y + m.y * ph, i + 1, m.status) } // mesmas coordenadas normalizadas da tela
-        y += ph + 8f
+        // Planta anotada: uma página por prancha com marcadores
+        plans.toSortedMap().forEach { (pageIdx, planBitmap) ->
+            newPage(); section(if (plans.size > 1) "3. Planta anotada — prancha ${pageIdx + 1}" else "3. Planta anotada")
+            val scale = min(cw / planBitmap.width, (H - y - M - 30f) / planBitmap.height)
+            val pw = planBitmap.width * scale; val ph = planBitmap.height * scale; val px = M + (cw - pw) / 2f
+            cv.drawBitmap(planBitmap, null, android.graphics.RectF(px, y, px + pw, y + ph), Paint(Paint.FILTER_BITMAP_FLAG))
+            cv.drawRect(px, y, px + pw, y + ph, Paint().apply { style = Paint.Style.STROKE; color = line.color; strokeWidth = 0.7f })
+            // mesmas coordenadas normalizadas da tela; a numeração é global (posição na lista completa)
+            markers.forEachIndexed { i, m -> if (m.page == pageIdx) pin(px + m.x * pw, y + m.y * ph, i + 1, m.status) }
+            y += ph + 8f
+        }
 
         // Detalhamento
         newPage(); section("4. Detalhamento item a item")
         table(listOf("Nº", "Categoria", "Especificação", "Status", "Observações de campo"), floatArrayOf(28f, 115f, 105f, 62f, 213f),
-            markers.mapIndexed { i, m -> listOf("#${i + 1}", m.category.label, m.spec.ifBlank { "—" }, m.status.label, m.note) })
+            markers.mapIndexed { i, m -> listOf("#${i + 1}", m.category.label, m.spec.ifBlank { "—" }, m.status.label, (if (survey.pageCount > 1) "[Prancha ${m.page + 1}] " else "") + m.note) })
 
         // Anexo fotográfico
         val withPhoto = markers.withIndex().filter { it.value.photoPath != null && File(it.value.photoPath!!).exists() }

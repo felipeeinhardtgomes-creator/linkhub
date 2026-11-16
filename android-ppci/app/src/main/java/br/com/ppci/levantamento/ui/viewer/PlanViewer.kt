@@ -158,7 +158,7 @@ fun PlanViewer(
                 for (t in ordered) {
                     if (cache[t.key] != null) continue
                     ensureActive()
-                    val bmp = source.renderTile(t) ?: continue
+                    val bmp = runCatching { source.renderTile(t) }.getOrNull() ?: continue // fonte fechada durante troca de prancha
                     cache.put(t.key, bmp.asImageBitmap())
                     revision++
                 }
@@ -175,8 +175,13 @@ fun PlanViewer(
             .pointerInput(source) {
                 detectTapGestures(
                     onDoubleTap = { p -> state.zoomAround(p, 2.5f, aspect) },
+                    // Toque longo SEMPRE cria um item novo, mesmo colado em outro pino (símbolos muito próximos).
+                    onLongPress = { p ->
+                        val n = state.toNormalized(p, aspect)
+                        if (n.x in 0f..1f && n.y in 0f..1f) onTapEmpty(n.x, n.y)
+                    },
                     onTap = { p ->
-                        val hitRadius = 28.dp.toPx()
+                        val hitRadius = 24.dp.toPx()
                         val hit = currentMarkers
                             .map { it to (state.toScreen(it.x, it.y, aspect) - p).getDistance() }
                             .filter { it.second <= hitRadius }

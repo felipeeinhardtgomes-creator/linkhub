@@ -1,6 +1,5 @@
 package br.com.ppci.levantamento.data
 
-import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -16,9 +15,9 @@ data class SurveyEntity(
     val site: String,
     val technician: String,
     val createdAt: Long,
-    /** Caminho do PDF copiado para filesDir/plans (o original nunca é tocado). */
+    /** PDF copiado para filesDir/plans (imagens são convertidas em PDF de 1 página na importação). */
     val pdfPath: String,
-    val pageIndex: Int = 0
+    val pageCount: Int = 1
 )
 
 @Entity(
@@ -29,6 +28,8 @@ data class SurveyEntity(
 data class MarkerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val surveyId: Long,
+    /** Índice da prancha (página do PDF), base 0. */
+    val page: Int = 0,
     /** Coordenadas NORMALIZADAS da página: 0f..1f, origem no canto superior esquerdo. */
     val x: Float,
     val y: Float,
@@ -36,6 +37,6 @@ data class MarkerEntity(
     val spec: String = "",
     val status: ItemStatus,
     val note: String = "",
-    @ColumnInfo(name = "photoPath") val photoPath: String? = null,
+    val photoPath: String? = null,
     val createdAt: Long
 )

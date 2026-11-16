@@ -3,9 +3,14 @@
 App Android (Kotlin + Jetpack Compose) para levantamento em campo e orçamento de PPCI sobre plantas
 A2/A1/A0 exportadas do AutoCAD. Funciona 100% offline.
 
-> **Estado atual:** o código foi escrito sem Android SDK disponível no ambiente de autoria, então **ainda não foi
-> compilado nem executado em dispositivo**. O primeiro passo no Android Studio é sincronizar o Gradle, rodar
-> `TileMathTest` (JVM) e abrir uma prancha A1 real em um tablet. A lista de riscos está no fim.
+> **Estado atual da verificação**
+> - **Verificado de verdade (JVM):** `TileMath`, `Summary` e `CsvExporter` foram compilados e testados fora do Android
+>   (9 testes passando: nível por zoom, cobertura de tiles, agrupamento, escape/BOM do CSV).
+> - **Escrito mas NÃO compilado:** todo o código que usa Android, Compose, Room e Hilt. O ambiente de autoria não
+>   alcança o Google Maven nem o Android SDK. O primeiro passo no Android Studio é sincronizar o Gradle
+>   (o wrapper já está em `gradlew`) e corrigir o que o compilador apontar.
+> - **Não executado em dispositivo:** desempenho em prancha A0 real, câmera, compartilhamento. Os testes
+>   instrumentados (`androidTest/`) existem para rodar nesse momento, ver seção 8.
 
 ## 1. Decisões principais
 
@@ -15,7 +20,9 @@ A2/A1/A0 exportadas do AutoCAD. Funciona 100% offline.
 | Visualizador | **Motor de tiles próprio em Compose** sobre `PdfRenderer` | Zoom até 15x com vetor re-rasterizado por região; pinos e gestos no mesmo sistema de coordenadas. |
 | Persistência | Room (SQLite) + arquivos em `filesDir` | Offline por construção. Esquema exportado (`schemas/`) para testar migrações. |
 | DI | Hilt (KSP) | Padrão do ecossistema; ViewModel injetável. |
-| Fotos | `ActivityResultContracts.TakePicture` + `FileProvider` + Coil | Sem CameraX: menos código e funciona bem para foto rápida. |
+| Fotos | `TakePicture` + `FileProvider` + Coil; reduzidas a 1600 px com EXIF aplicado | Sem CameraX. ~4 MB viram ~300 KB por foto. |
+| Preferências | DataStore (empresa e RT) | Lembrados entre visitas. |
+| Backup | `.zip` autocontido (kotlinx.serialization + `java.util.zip`) | Troca de aparelho e envio da visita ao escritório. |
 | Relatório PDF | `android.graphics.pdf.PdfDocument` | Sem dependência; controle total de paginação. |
 | CSV | Gerado à mão (`;` + BOM UTF-8) | Abre direto no Excel em português. |
 | Leitura do carimbo | PDFBox-Android (texto vetorial) → ML Kit OCR offline (fallback) | PDFs do AutoCAD costumam ter texto real; OCR cobre carimbo explodido ou escaneado. |
@@ -38,7 +45,9 @@ Zero dependência nativa e APK menor. Trade-off: `PdfRenderer` não é thread-sa
 
 ```
 domain/   Category, ItemStatus, Counts            (regras de negócio puras)
-data/     Room: SurveyEntity, MarkerEntity, DAOs, SurveyRepository
+data/     Room: SurveyEntity, MarkerEntity, DAOs, SurveyRepository, SettingsStore (DataStore)
+backup/   BackupManager (export/import .zip)
+util/     PhotoUtils (reduzir foto, decodificar imagem com EXIF)
 pdf/      TileMath (puro, testável), PdfPageSource, TileCache
 export/   Summary (agrupamento), CsvExporter, ReportPdfWriter, TitleBlockReader
 ui/       Theme, home/HomeScreen, viewer/{PlanViewer, ViewerViewModel, ViewerScreen, MarkerSheet}
@@ -96,24 +105,28 @@ O hit-test é feito em pixels de tela (raio de 28 dp), então tocar perto de um 
 ## 5. Modelo de dados
 
 ```
-survey(id, company, client, site, technician, createdAt, pdfPath, pageIndex)
-marker(id, surveyId → survey ON DELETE CASCADE, x, y, category, spec, status, note, photoPath, createdAt)
+survey(id, company, client, site, technician, createdAt, pdfPath, pageCount)
+marker(id, surveyId → survey ON DELETE CASCADE, page, x, y, category, spec, status, note, photoPath, createdAt)
 ```
 
-- O PDF é **copiado em streaming** para `filesDir/plans/` (o original nunca é alterado) e fotos ficam em
-  `filesDir/photos/`. Dados privados do app, fora da galeria.
-- **Numeração (#1, #2…)** = posição na lista ordenada por `id`. Excluir um item renumera os seguintes, e a
-  tela, o CSV e o PDF sempre concordam porque usam a mesma lista.
-- Enums são gravados como texto (Room ≥ 2.3).
+- **Um só formato de planta:** PDF é copiado em streaming para `filesDir/plans/`; PNG/JPG é convertido em PDF
+  de 1 página (lado maior ≤ 4096 px, EXIF aplicado). O original nunca é alterado e o resto do app só conhece PDF.
+- **Várias pranchas:** `page` (base 0) em cada marcador; a tela mostra só os pinos da prancha atual, com seletor
+  `Prancha n / N`. A **numeração (#1, #2…) é global**: posição na lista completa ordenada por `id`. Excluir um
+  item renumera os seguintes; tela, CSV e PDF concordam porque usam a mesma lista.
+- Fotos em `filesDir/photos/`. Excluir item ou levantamento apaga os arquivos.
+- Enums gravados como texto (Room ≥ 2.3).
+- **Esquema:** a versão 1 ainda não foi distribuída, então mudanças entram sem migração. **A partir do primeiro
+  release**, toda alteração exige `Migration` + teste (`exportSchema = true` grava `app/schemas/`; versione essa pasta).
 
 ## 6. Fluxo de campo
 
-1. **Home:** importa o PDF (Storage Access Framework); `TitleBlockReader` sugere Cliente / Obra / RT; o técnico confere.
-2. **Viewer:** toque em um símbolo → `MarkerSheet` (bottom sheet): categoria → especificação (chips ou texto) →
+1. **Home:** lista de levantamentos anteriores (abrir ou excluir com confirmação); importa PDF/imagem (Storage Access Framework) ou backup `.zip`; `TitleBlockReader` sugere Cliente / Obra / RT; empresa e RT vêm da última visita.
+2. **Viewer:** toque em um símbolo → `MarkerSheet` (toque **longo** cria item novo mesmo colado a outro pino) (bottom sheet): categoria → especificação (chips ou texto) →
    observação/foto → **toque em um status salva**. "NÃO TEM" é o maior botão (é o que vira orçamento);
    a última categoria usada vem pré-selecionada.
 3. **Barra superior:** `Orçar: N itens | Existentes: M` em tempo real (`Counts`, derivado do `Flow` de marcadores).
-4. **Exportar:** menu → PDF / CSV; abre o seletor de compartilhamento do Android (e-mail, WhatsApp, Drive,
+4. **Exportar:** menu → PDF / CSV / backup; abre o seletor de compartilhamento do Android (e-mail, WhatsApp, Drive,
    salvar em arquivos) via `FileProvider`. O arquivo é gerado offline e só o compartilhamento depende de rede.
 
 ## 7. Exportação
@@ -121,23 +134,32 @@ marker(id, surveyId → survey ON DELETE CASCADE, x, y, category, spec, status, 
 - **CSV item a item:** `Item;Categoria;Especificação;Status;Quantidade;Observação` (Quantidade = 1 por pino).
 - **CSV agrupado:** uma linha por categoria + especificação + status, com a lista de pinos (`#3 #7 #9`).
   Chave de agrupamento ignora maiúsculas e espaços nas pontas da especificação.
-- **PDF A4:** (1) cabeçalho, KPIs, resumo "a orçar" (Não tem × Irregular) e "existentes"; (2) planta anotada: a
+- **PDF A4:** (1) cabeçalho, KPIs, resumo "a orçar" (Não tem × Irregular) e "existentes"; (2) planta anotada, **uma por prancha com marcadores**: a
   página renderizada a 2400 px + pinos desenhados com as mesmas coordenadas normalizadas; (3) tabela item a item
   com paginação; (4) anexo fotográfico (fotos decodificadas com `inSampleSize` para não estourar memória).
 
+- **Backup `.zip`:** `survey.json` (dados e marcadores normalizados) + `plan.pdf` + `photos/`. A importação cria
+  **sempre um levantamento novo** (nunca sobrescreve), valida o PDF e protege contra zip-slip (só nomes fixos).
+
 ## 8. Testes e verificação
 
-- `TileMathTest` (JVM): nível por zoom, cobertura exata da página, poucos tiles para viewport pequeno, viewport fora da página.
-- A fazer: teste instrumentado de migração Room (usa `room-testing`), teste de UI do `MarkerSheet`, e
-  benchmark de tempo de tile com uma prancha A0 real.
+| Teste | Onde | Estado |
+|---|---|---|
+| `TileMathTest` (nível por zoom, cobertura exata, poucos tiles, fora da página) | JVM | **executado: passa** |
+| `SummaryCsvTest` (agrupamento ignorando caixa/espaços, ordem, BOM, escape de `;` e `"`, pinos) | JVM | **executado: passa** |
+| `SurveyDaoTest` (coordenadas/página, cascata, contagens da lista) | `androidTest` (Room em memória) | escrito, não executado |
+| `MarkerSheetTest` (chip + toque em NÃO TEM salva com espec. e status) | `androidTest` (Compose) | escrito, não executado |
+| `TileRenderBenchmarkTest` (A1 sintética com 40 000 linhas, tile no zoom máximo) | `androidTest` | escrito, não executado; mede em `adb logcat -s TileBench` |
 
-## 9. Riscos conhecidos e próximos passos
+Para rodar: `./gradlew testDebugUnitTest` e `./gradlew connectedDebugAndroidTest` (tablet/emulador).
+Não há teste de migração ainda porque só existe a versão 1 do esquema.
 
-1. **Não compilado ainda.** Pode haver ajustes de assinatura de API (Compose BOM, Room, Hilt). Versões em `libs.versions.toml` devem ser atualizadas pelo Android Studio.
-2. **Tempo de tile em CAD denso.** O Pdfium percorre o conteúdo da página para cada tile; em A0 com milhares de camadas pode levar centenas de ms. Mitigações: base + níveis grossos já cobrem, e o cache evita repetição. Medir antes de otimizar; plano B = SSIV/PDFium.
-3. **Imagem de PDF escaneado:** o tamanho do raster embutido limita a nitidez, independente do motor.
-4. **PDFs multipágina:** o modelo guarda `pageIndex`, mas a UI abre só a página 0; falta seletor de prancha (os marcadores precisarão de `page`).
-5. **Fotos:** o arquivo da câmera é gravado no tamanho original; reduzir (ex.: 1600 px) antes de salvar economiza espaço em visitas longas.
-6. **Backup:** `allowBackup=false` por privacidade; falta uma rotina de exportar/importar levantamento completo (zip) para troca de aparelho.
-7. **Lista de levantamentos** e reabertura de visitas anteriores (hoje cada início cria um novo).
-8. **Textos** estão fixos em português no código; mover para `strings.xml` se houver outros idiomas.
+## 9. Riscos conhecidos e o que só um dispositivo responde
+
+1. **Compilação.** Pode haver ajustes de assinatura de API (Compose BOM, Room, Hilt). Versões em `libs.versions.toml` devem ser atualizadas pelo Android Studio.
+2. **Tempo de tile em CAD denso (A0).** O Pdfium percorre o conteúdo da página para cada tile. Rode o `TileRenderBenchmarkTest` e, depois, uma prancha real. Mitigações já existentes: base + níveis grossos cobrem lacunas e o cache evita repetição. Plano B = SSIV com decoder customizado, ou PDFium empacotado (só `PdfPageSource` muda).
+3. **PDF escaneado:** o raster embutido limita a nitidez, independente do motor.
+4. **Símbolos muito próximos:** o toque seleciona o pino mais próximo (raio de 24 dp); o toque longo sempre cria item novo. Se em campo isso ainda atrapalhar, o ajuste é aumentar o zoom mínimo para marcar ou mostrar um seletor quando houver dois pinos no raio.
+5. **Textos:** a interface está em `strings.xml` (pt-BR). Rótulos de domínio usados nos documentos (categorias, status, cabeçalhos de CSV/PDF) ficam no código de propósito, porque são terminologia do orçamento e não texto de tela; para traduzir, mova-os junto.
+6. **Foto da câmera:** o arquivo grande existe por instantes antes de ser reduzido; se o app for encerrado nesse intervalo fica uma foto grande órfã (sem impacto funcional).
+7. **Backup:** exporta um levantamento por vez; não há backup automático em nuvem (de propósito, o app é offline).

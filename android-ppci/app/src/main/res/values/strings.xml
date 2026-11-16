@@ -1,3 +1,56 @@
 <resources>
     <string name="app_name">Levantamento PPCI</string>
+
+    <!-- Tela inicial -->
+    <string name="home_title">Novo levantamento</string>
+    <string name="home_import_plan">Importar planta (PDF ou imagem)</string>
+    <string name="home_plan_ready">Planta importada. Trocar arquivo</string>
+    <string name="home_detected">Dados lidos do carimbo da planta. Confira antes de iniciar.</string>
+    <string name="home_start">Iniciar levantamento</string>
+    <string name="home_previous">Levantamentos anteriores</string>
+    <string name="home_empty">Nenhum levantamento ainda. Importe uma planta para começar.</string>
+    <string name="home_import_backup">Importar backup (.zip)</string>
+    <string name="home_row_summary">%1$d a orçar · %2$d marcados</string>
+    <string name="home_row_pages">%1$d pranchas</string>
+    <string name="import_error">Não foi possível importar o arquivo. Use PDF, PNG, JPG ou um backup .zip deste app.</string>
+    <string name="field_company">Empresa</string>
+    <string name="field_client">Cliente</string>
+    <string name="field_site">Obra / Endereço</string>
+    <string name="field_tech">Responsável técnico (CREA)</string>
+    <string name="untitled_survey">Levantamento sem cliente</string>
+
+    <!-- Geral -->
+    <string name="back">Voltar</string>
+    <string name="delete">Excluir</string>
+    <string name="delete_confirm">Confirmar exclusão</string>
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+
+    <!-- Visualizador -->
+    <string name="viewer_counter">Orçar: %1$d itens  |  Existentes: %2$d</string>
+    <string name="viewer_open_failed">Não foi possível abrir esta planta.</string>
+    <string name="export">Exportar</string>
+    <string name="export_pdf">Relatório técnico (PDF)</string>
+    <string name="export_csv_items">CSV item a item (Excel)</string>
+    <string name="export_csv_grouped">CSV resumo agrupado (orçamento)</string>
+    <string name="export_backup">Backup do levantamento (.zip)</string>
+    <string name="zoom_in">Mais zoom</string>
+    <string name="zoom_out">Menos zoom</string>
+    <string name="zoom_fit">Enquadrar planta</string>
+    <string name="page_label">Prancha %1$d / %2$d</string>
+    <string name="page_prev">Prancha anterior</string>
+    <string name="page_next">Próxima prancha</string>
+
+    <!-- Menu de marcação -->
+    <string name="sheet_new">Novo item #%1$d</string>
+    <string name="sheet_edit">Item #%1$d</string>
+    <string name="spec_label">Especificação (opcional)</string>
+    <string name="note_label">Observação de campo</string>
+    <string name="photo_add">Foto</string>
+    <string name="photo_replace">Trocar foto</string>
+    <string name="status_label">STATUS</string>
+    <string name="status_tap_to_save">STATUS — toque para salvar</string>
+    <string name="status_missing_btn">NÃO TEM — Orçar fornecimento + instalação</string>
+    <string name="status_irregular_btn">IRREGULAR — Orçar manutenção / troca</string>
+    <string name="status_ok_btn">TEM / OK — Existente (não orçar)</string>
 </resources>
