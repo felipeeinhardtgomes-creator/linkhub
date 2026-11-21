@@ -1,0 +1,27 @@
+{
+  "name": "ppci-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Levantamento de PPCI em campo sobre plantas PDF — webapp (PWA) + servidor Node/SQLite",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:client": "vite",
+    "prebuild": "node scripts/prepare-assets.mjs",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  },
+  "devDependencies": {
+    "fflate": "0.8.2",
+    "jspdf": "2.5.2",
+    "jspdf-autotable": "3.8.4",
+    "pdfjs-dist": "4.10.38",
+    "vite": "5.4.11",
+    "vite-plugin-pwa": "0.21.1"
+  }
+}

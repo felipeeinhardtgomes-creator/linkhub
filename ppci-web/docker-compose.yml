@@ -1,0 +1,13 @@
+# Teste local (build a partir do código):  docker compose up --build   ->  http://localhost:3000
+name: ppci
+services:
+  ppci:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      PPCI_ADMIN_USER: admin
+      PPCI_ADMIN_PASSWORD: troque-esta-senha
+    volumes: [ppci-data:/data]
+    restart: unless-stopped
+volumes:
+  ppci-data:

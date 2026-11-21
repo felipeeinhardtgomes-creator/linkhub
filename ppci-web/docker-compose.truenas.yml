@@ -1,0 +1,24 @@
+# ==========================================================
+# PPCI Web — Custom App para TrueNAS SCALE (Apps -> Discover Apps -> ⋮ -> Install via YAML)
+#
+# 1. Crie um dataset (ex.: /mnt/tank/apps/ppci) e dê a ele o dono 568:568 (usuário "apps"):
+#      chown -R 568:568 /mnt/tank/apps/ppci
+# 2. Ajuste "image:" (veja ppci-web/README.md -> publicação da imagem) e a senha do admin.
+# 3. Cole este arquivo no editor de YAML e salve.
+# Tudo que precisa sobreviver a updates (banco SQLite, PDFs e fotos) fica em /data -> o dataset.
+# ==========================================================
+name: ppci
+services:
+  ppci:
+    image: ghcr.io/felipeeinhardtgomes-creator/linkhub-ppci:latest
+    container_name: ppci
+    restart: unless-stopped
+    user: "568:568"
+    environment:
+      PPCI_ADMIN_USER: admin
+      PPCI_ADMIN_PASSWORD: TROQUE_POR_UMA_SENHA_FORTE   # só vale no PRIMEIRO start (cria o admin); depois troque pelo painel
+      TZ: America/Sao_Paulo
+    volumes:
+      - /mnt/tank/apps/ppci:/data
+    ports:
+      - "3060:3000"   # host:container — troque a porta do HOST se já estiver em uso
