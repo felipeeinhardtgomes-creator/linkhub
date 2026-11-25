@@ -37,6 +37,10 @@ case "$1" in
   diag)
     echo "modelo=$MODEL uid=$(id -u) selinux=$(getenforce 2>/dev/null)"
     for m in $METHODS; do n=${m%%:*}; [ -e "$PS/$n" ] && echo "$n existe valor=$(cat $PS/$n 2>/dev/null) escrita=$([ -w $PS/$n ] && echo sim || echo nao)" || echo "$n NAO existe"; done
-    echo "--- nós com slate/suspend/charg:"; ls $PS | grep -i -E "slate|suspend|charg|store|full|protect|bypass" ;;
+    echo "android=$(getprop ro.build.version.release) oneui=$(getprop ro.build.version.oneui) fw=$(getprop ro.build.display.id)"
+    echo "--- nós relevantes em power_supply:"
+    for d in /sys/class/power_supply/*; do echo "[$d]"; ls $d | grep -i -E "slate|suspend|charg|store|full|protect|bypass|limit|input|sleep|current_max"; done
+    echo "--- settings:"; for t in global system secure; do settings list $t 2>/dev/null | grep -i -E "protect|batt|charg|bypass" | sed "s/^/$t: /"; done
+    echo "--- dumpsys battery:"; dumpsys battery | head -25 ;;
   *) echo "uso: ctl.sh on|off|status|check|diag"; exit 1 ;;
 esac
