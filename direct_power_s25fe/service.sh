@@ -10,7 +10,7 @@ if [ -f "$PIDF" ] && kill -0 "$(cat $PIDF)" 2>/dev/null; then exit 0; fi
 echo $$ > "$PIDF"
 
 STATE=off
-set_state() { [ "$STATE" = "$1" ] && return; sh "$CTL" "$1" >/dev/null 2>&1; STATE=$1; }
+set_state() { sh "$CTL" "$1" >/dev/null 2>&1; STATE=$1; }
 
 # Loop permanente (não depende de logcat nem da UI aberta)
 while true; do
@@ -26,7 +26,7 @@ while true; do
     [ $D -le 3 ] && S=2 || S=10
   else
     # sem limite, sem carregador ou desligado: garante carga normal
-    STATE=x; set_state off
+    set_state off
     S=10
   fi
   sleep $S

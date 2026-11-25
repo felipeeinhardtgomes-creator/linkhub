@@ -12,7 +12,16 @@ log() { echo "$(date '+%H:%M:%S') $*" >> "$LOG"; [ "$(wc -c < "$LOG" 2>/dev/null
 
 case "$MODEL" in SM-S731*) ;; *) [ -f "$MODDIR/.force" ] || { echo "UNSUPPORTED:$MODEL"; exit 2; } ;; esac
 
-apply() { # $1=on|off  -> tenta cada método até um ser aceito e confirmado
+apply() { # $1=on|off  -> 1º: settings pass_through (funciona sem root); depois nós sysfs
+  [ "$1" = on ] && sv=1 || sv=0
+  settings put system pass_through "$sv" 2>/dev/null
+  got=$(settings get system pass_through 2>/dev/null)
+  if [ "$got" = "$sv" ]; then
+    echo "settings" > "$MODDIR/method"
+    log "$1 via settings pass_through ($got)"
+    echo "OK:settings"; return 0
+  fi
+  log "settings pass_through: escreveu $sv, leu '$got'"
   for m in $METHODS; do
     n=${m%%:*}; r=${m#*:}; von=${r%%:*}; voff=${r#*:}
     [ "$1" = on ] && v=$von || v=$voff
@@ -32,12 +41,13 @@ apply() { # $1=on|off  -> tenta cada método até um ser aceito e confirmado
 
 case "$1" in
   on|off) apply "$1" ;;
-  status) n=$(cat "$MODDIR/method" 2>/dev/null || echo batt_slate_mode); cat "$PS/$n" 2>/dev/null ;;
+  status) n=$(cat "$MODDIR/method" 2>/dev/null || echo settings); [ "$n" = settings ] && settings get system pass_through || cat "$PS/$n" 2>/dev/null ;;
   check)  echo "OK:$MODEL uid=$(id -u)" ;;
   diag)
     echo "modelo=$MODEL uid=$(id -u) selinux=$(getenforce 2>/dev/null)"
     for m in $METHODS; do n=${m%%:*}; [ -e "$PS/$n" ] && echo "$n existe valor=$(cat $PS/$n 2>/dev/null) escrita=$([ -w $PS/$n ] && echo sim || echo nao)" || echo "$n NAO existe"; done
     echo "android=$(getprop ro.build.version.release) oneui=$(getprop ro.build.version.oneui) fw=$(getprop ro.build.display.id)"
+    echo "pass_through atual=$(settings get system pass_through 2>/dev/null)"
     echo "--- nós relevantes em power_supply:"
     for d in /sys/class/power_supply/*; do echo "[$d]"; ls $d | grep -i -E "slate|suspend|charg|store|full|protect|bypass|limit|input|sleep|current_max"; done
     echo "--- settings:"; for t in global system secure; do settings list $t 2>/dev/null | grep -i -E "protect|batt|charg|bypass" | sed "s/^/$t: /"; done
