@@ -178,9 +178,11 @@
         targetPct = target;
         positionThumb(target);
         if (battery !== null && battery >= target) {
-          await exec(`sh ${CTL} on`);
-          statusEl.textContent = "⚡ DIRECT POWER ATIVO — bateria em " + battery + "% (limite: " + target + "%)";
-          statusEl.style.color = "#7ef07e";
+          const rr = ((await exec(`sh ${CTL} on`)).stdout || "").trim();
+          const ok = rr.startsWith("OK");
+          statusEl.textContent = ok ? "⚡ DIRECT POWER ATIVO (" + rr.slice(3) + ") — " + battery + "% (limite: " + target + "%)"
+                                    : "⚠ Falha ao ativar: " + rr + " — veja log.txt / diag";
+          statusEl.style.color = ok ? "#7ef07e" : "#ff5252";
         } else {
           await exec(`sh ${CTL} off`);
           statusEl.textContent = "⏳ Aguardando " + target + "% — bateria em " + (battery ?? "?") + "%";
