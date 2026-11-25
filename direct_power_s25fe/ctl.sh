@@ -1,56 +1,46 @@
 #!/system/bin/sh
-# Direct Power S25 FE — uso: ctl.sh on|off|status|check|diag
+# Direct Power S25 FE (One UI 9) — usa a proteção de bateria nativa da Samsung via settings (sem root)
+# Uso: ctl.sh on <alvo%> | off | status | check | diag
 MODDIR=${0%/*}
-PS=/sys/class/power_supply/battery
 LOG="$MODDIR/log.txt"
+ORIG="$MODDIR/orig"
 MODEL=$(getprop ro.product.model)
-
-# métodos: nó:valor_ligado:valor_desligado  (1º = bypass real; demais = só pausam a carga)
-METHODS="batt_slate_mode:1:0 input_suspend:1:0 charging_enabled:0:1 charge_disable:1:0 store_mode:1:0"
 
 log() { echo "$(date '+%H:%M:%S') $*" >> "$LOG"; [ "$(wc -c < "$LOG" 2>/dev/null)" -gt 20000 ] && tail -n 80 "$LOG" > "$LOG.t" && mv "$LOG.t" "$LOG"; }
 
 case "$MODEL" in SM-S731*) ;; *) [ -f "$MODDIR/.force" ] || { echo "UNSUPPORTED:$MODEL"; exit 2; } ;; esac
 
-apply() { # $1=on|off  -> 1º: settings pass_through (funciona sem root); depois nós sysfs
-  [ "$1" = on ] && sv=1 || sv=0
-  settings put system pass_through "$sv" 2>/dev/null
-  got=$(settings get system pass_through 2>/dev/null)
-  if [ "$got" = "$sv" ]; then
-    echo "settings" > "$MODDIR/method"
-    log "$1 via settings pass_through ($got)"
-    echo "OK:settings"; return 0
-  fi
-  log "settings pass_through: escreveu $sv, leu '$got'"
-  for m in $METHODS; do
-    n=${m%%:*}; r=${m#*:}; von=${r%%:*}; voff=${r#*:}
-    [ "$1" = on ] && v=$von || v=$voff
-    [ -e "$PS/$n" ] || continue
-    echo "$v" > "$PS/$n" 2>/dev/null
-    now=$(cat "$PS/$n" 2>/dev/null)
-    if [ "$now" = "$v" ]; then
-      echo "$n" > "$MODDIR/method"
-      log "$1 via $n ($now)"
-      echo "OK:$n"; return 0
-    fi
-    log "falhou $n: escreveu $v, leu '$now'"
-  done
-  log "NENHUM método funcionou para $1 (uid=$(id -u))"
-  echo "ERR:sem método (uid=$(id -u))"; return 3
+gget() { settings get global "$1" 2>/dev/null; }
+
+save_orig() { # guarda valores originais uma única vez
+  [ -f "$ORIG" ] && return
+  { echo "protect=$(gget protect_battery)"; echo "thr=$(gget battery_protection_threshold)"; } > "$ORIG"
+  log "originais salvos: $(tr '\n' ' ' < $ORIG)"
 }
 
 case "$1" in
-  on|off) apply "$1" ;;
-  status) n=$(cat "$MODDIR/method" 2>/dev/null || echo settings); [ "$n" = settings ] && settings get system pass_through || cat "$PS/$n" 2>/dev/null ;;
-  check)  echo "OK:$MODEL uid=$(id -u)" ;;
+  on)
+    T=$2
+    case "$T" in ''|*[!0-9]*) echo "ERR:alvo invalido"; exit 1 ;; esac
+    [ "$T" -lt 1 ] && { echo "ERR:alvo invalido"; exit 1; }
+    save_orig
+    [ "$(gget protect_battery)" = "1" ] || settings put global protect_battery 1
+    [ "$(gget battery_protection_threshold)" = "$T" ] || settings put global battery_protection_threshold "$T"
+    got=$(gget battery_protection_threshold)
+    if [ "$got" = "$T" ]; then echo "OK:protecao=$T"; else log "falhou: escreveu $T leu '$got'"; echo "ERR:leu $got"; exit 3; fi ;;
+  off)
+    if [ -f "$ORIG" ]; then
+      thr=$(sed -n 's/^thr=//p' "$ORIG"); pr=$(sed -n 's/^protect=//p' "$ORIG")
+      [ -n "$thr" ] && [ "$thr" != "null" ] && settings put global battery_protection_threshold "$thr"
+      [ -n "$pr" ] && [ "$pr" != "null" ] && settings put global protect_battery "$pr"
+      rm -f "$ORIG"; log "restaurado thr=$thr protect=$pr"
+    fi
+    echo "OK:restaurado" ;;
+  status) echo "$(gget protect_battery) $(gget battery_protection_threshold)" ;;
+  check)  echo "OK:$MODEL" ;;
   diag)
-    echo "modelo=$MODEL uid=$(id -u) selinux=$(getenforce 2>/dev/null)"
-    for m in $METHODS; do n=${m%%:*}; [ -e "$PS/$n" ] && echo "$n existe valor=$(cat $PS/$n 2>/dev/null) escrita=$([ -w $PS/$n ] && echo sim || echo nao)" || echo "$n NAO existe"; done
-    echo "android=$(getprop ro.build.version.release) oneui=$(getprop ro.build.version.oneui) fw=$(getprop ro.build.display.id)"
-    echo "pass_through atual=$(settings get system pass_through 2>/dev/null)"
-    echo "--- nós relevantes em power_supply:"
-    for d in /sys/class/power_supply/*; do echo "[$d]"; ls $d | grep -i -E "slate|suspend|charg|store|full|protect|bypass|limit|input|sleep|current_max"; done
-    echo "--- settings:"; for t in global system secure; do settings list $t 2>/dev/null | grep -i -E "protect|batt|charg|bypass" | sed "s/^/$t: /"; done
-    echo "--- dumpsys battery:"; dumpsys battery | head -25 ;;
-  *) echo "uso: ctl.sh on|off|status|check|diag"; exit 1 ;;
+    echo "modelo=$MODEL uid=$(id -u)"
+    echo "protect_battery=$(gget protect_battery) threshold=$(gget battery_protection_threshold) recharge=$(gget battery_protection_recharge_level)"
+    cat "$ORIG" 2>/dev/null; dumpsys battery | grep -E "^  (status|level|AC powered)" ;;
+  *) echo "uso: ctl.sh on <alvo>|off|status|check|diag"; exit 1 ;;
 esac

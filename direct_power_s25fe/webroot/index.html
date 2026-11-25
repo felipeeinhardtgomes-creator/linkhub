@@ -155,16 +155,22 @@
       if (!supported) {
         statusEl.textContent = out.startsWith("UNSUPPORTED")
           ? "⛔ Apenas Galaxy S25 FE (SM-S731x) — detectado: " + out.split(":")[1]
-          : "⛔ Nó batt_slate_mode não encontrado (precisa de root/permissão)";
+          : "⛔ Falha ao verificar o aparelho";
         statusEl.style.color = "#ff5252";
       }
       return supported;
     }
 
+    async function getStatus() {
+      const r = await exec("dumpsys battery | grep -E '^  status:'");
+      const m = (r.stdout || "").match(/status:\s*(\d+)/);
+      return m ? parseInt(m[1]) : null;
+    }
+
     async function updateUI() {
       if (supported === null) await checkSupport();
       if (!supported) return;
-      const [battery, target] = await Promise.all([getBattery(), getTarget()]);
+      const [battery, target, st] = await Promise.all([getBattery(), getTarget(), getStatus()]);
 
       if (battery !== null) {
         battPct = battery;
@@ -178,14 +184,10 @@
         targetPct = target;
         positionThumb(target);
         if (battery !== null && battery >= target) {
-          const rr = ((await exec(`sh ${CTL} on`)).stdout || "").trim();
-          const ok = rr.startsWith("OK");
-          statusEl.textContent = ok ? "⚡ DIRECT POWER ATIVO (" + rr.slice(3) + ") — " + battery + "% (limite: " + target + "%)"
-                                    : "⚠ Falha ao ativar: " + rr + " — veja log.txt / diag";
-          statusEl.style.color = ok ? "#7ef07e" : "#ff5252";
+          statusEl.textContent = "⚡ DIRECT POWER ATIVO — carga parada em " + battery + "% (limite: " + target + "%)" + (st === 2 ? " · aguardando o sistema pausar…" : "");
+          statusEl.style.color = "#7ef07e";
         } else {
-          await exec(`sh ${CTL} off`);
-          statusEl.textContent = "⏳ Aguardando " + target + "% — bateria em " + (battery ?? "?") + "%";
+          statusEl.textContent = "⏳ Carregando até " + target + "% — bateria em " + (battery ?? "?") + "%";
           statusEl.style.color = "rgba(0,229,255,0.6)";
         }
       } else {
@@ -198,13 +200,14 @@
       statusEl.textContent = "Salvando...";
       statusEl.style.color = "#ffe000";
       await exec(`echo '${targetPct}' > '${TARGET_FILE}'`);
-      // Ativa pass-through instantaneamente se bateria já >= target
-      const currentLevel = await getBattery();
-      if (currentLevel !== null && currentLevel >= targetPct) {
-        await exec(`sh ${CTL} on`);
-      } else {
-        await exec(`sh ${CTL} off`);
+      const rr = ((await exec(`sh ${CTL} on ${targetPct}`)).stdout || "").trim();
+      if (!rr.startsWith("OK")) {
+        statusEl.textContent = "⚠ Falha ao aplicar: " + rr;
+        statusEl.style.color = "#ff5252";
+        return;
       }
+      // garante o worker em segundo plano
+      await exec(`sh ${MODDIR}/service.sh >/dev/null 2>&1 &`);
       setTimeout(updateUI, 600);
     };
 
