@@ -1,0 +1,8 @@
+id=direct_power
+name=Direct Power ⚡️ S25 FE
+version=1.0.1-s25fe
+versionCode=4
+author=@Kamura_Dio
+banner=banner.png
+description=Passagem direta de carga por porcentagem — exclusivo Galaxy S25 FE (SM-S731x).
+axeronPlugin=12100

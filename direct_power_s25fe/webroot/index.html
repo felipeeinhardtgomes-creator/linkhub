@@ -1,0 +1,470 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#04080f;overflow:hidden}
+
+    /* === ROOT: ocupa tela toda, scroll bloqueado === */
+    .dp-root{
+      background:#04080f;
+      padding:16px 14px 14px;
+      font-family:'Share Tech Mono',monospace;
+      color:#00e5ff;
+      position:relative;
+      overflow:hidden;
+      width:100%;
+      height:100vh;
+      display:flex;
+      flex-direction:column;
+      gap:0;
+    }
+    .dp-root::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);background-size:28px 28px;pointer-events:none}
+    .dp-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 3px);pointer-events:none;z-index:1}
+
+    /* === HEADER === */
+    .dp-header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0}
+    .dp-title{font-family:'Exo 2',sans-serif;font-size:26px;font-weight:900;color:#ffe000;letter-spacing:5px;text-transform:uppercase;line-height:1}
+    .dp-title-sub{font-size:10px;letter-spacing:5px;color:rgba(255,224,0,0.35);margin-top:2px;font-family:'Share Tech Mono',monospace}
+    .dp-badge{display:flex;align-items:center;gap:6px;border:0.5px solid rgba(255,224,0,0.25);border-radius:6px;padding:5px 12px;font-size:10px;letter-spacing:3px;color:rgba(255,224,0,0.55)}
+    .dp-badge-dot{width:6px;height:6px;border-radius:50%;background:#ffe000;animation:yblink 1.8s ease-in-out infinite}
+    @keyframes yblink{0%,100%{opacity:1}50%{opacity:0.25}}
+
+    /* === BODY: 3 colunas, altura livre === */
+    .dp-body{position:relative;z-index:2;display:grid;grid-template-columns:54px 1fr 130px;gap:12px;align-items:start;flex-shrink:0}
+
+    /* === SLIDER (altura fixa do design original) === */
+    .slider-col{display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:6px}
+    .slider-label{font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);text-transform:uppercase;text-align:center;line-height:1.4}
+    .slider-track{position:relative;width:28px;height:280px;background:rgba(0,229,255,0.06);border:0.5px solid rgba(0,229,255,0.2);border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+    .slider-fill{position:absolute;bottom:4px;left:4px;right:4px;border-radius:10px;background:linear-gradient(0deg,#ffe000,#ff6600,#ff3300);transition:height 0.1s linear}
+    .slider-thumb{position:absolute;left:50%;transform:translateX(-50%);width:36px;height:18px;background:#020a14;border:1.5px solid #ffe000;border-radius:5px;cursor:grab;display:flex;align-items:center;justify-content:center;font-size:9px;color:#ffe000;letter-spacing:1px;font-family:'Rajdhani',sans-serif;font-weight:700;z-index:5;transition:border-color 0.2s}
+    .slider-thumb:active{cursor:grabbing;border-color:#fff}
+    .slider-tick{position:absolute;left:calc(100% + 4px);font-size:8px;color:rgba(0,229,255,0.35);letter-spacing:0;line-height:1;font-family:'Share Tech Mono',monospace;white-space:nowrap}
+    .protect-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(0,230,118,0.08);border:0.5px solid rgba(0,230,118,0.3);border-radius:4px;padding:3px 8px;font-size:9px;letter-spacing:2px;color:#00e676;margin-top:6px;transition:opacity 0.5s}
+
+    /* === CENTRO === */
+    .center-col{display:flex;flex-direction:column;gap:10px}
+    .batt-section{display:flex;gap:10px;align-items:flex-start}
+    .batt-wrap{display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0}
+    .batt-cap{width:22px;height:8px;background:rgba(0,229,255,0.4);border-radius:3px 3px 0 0}
+    .batt-body{width:46px;height:140px;border:1.5px solid rgba(0,229,255,0.4);border-radius:4px 4px 7px 7px;position:relative;overflow:hidden;background:rgba(0,10,24,0.8)}
+    .batt-liquid{position:absolute;bottom:0;left:0;width:100%;transition:height 0.6s ease,background 0.5s;background:linear-gradient(180deg,rgba(0,229,255,0.5) 0%,rgba(0,180,80,0.8) 100%)}
+    .batt-scan{position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.8),transparent);animation:bscan 2.5s linear infinite}
+    @keyframes bscan{0%{top:0;opacity:0.9}100%{top:100%;opacity:0}}
+    .batt-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:#fff;text-shadow:0 0 8px #00e5ff;z-index:3;letter-spacing:1px;pointer-events:none}
+    .ering{position:absolute;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(255,224,0,0.9),transparent);animation:eringup 2s linear infinite;opacity:0}
+    .ering:nth-child(4){animation-delay:0.7s}
+    .ering:nth-child(5){animation-delay:1.4s}
+    @keyframes eringup{0%{bottom:0;opacity:0}20%{opacity:1}80%{opacity:0.6}100%{bottom:100%;opacity:0}}
+    .batt-bolt{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) translateY(-10px);z-index:4;font-size:20px;animation:boltpop 2s ease-in-out infinite;pointer-events:none}
+    @keyframes boltpop{0%,100%{opacity:0.8;transform:translate(-50%,-50%) translateY(-10px) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) translateY(-10px) scale(1.18)}}
+    .batt-info{flex:1;display:flex;flex-direction:column;gap:7px}
+    .batt-stat{background:rgba(0,20,40,0.7);border:0.5px solid rgba(0,229,255,0.15);border-radius:6px;padding:7px 10px;position:relative;overflow:hidden}
+    .batt-stat::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.3),transparent)}
+    .bstat-label{font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);text-transform:uppercase;margin-bottom:2px}
+    .bstat-val{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#ffe000;letter-spacing:1px;line-height:1;transition:color 0.4s}
+    .bstat-unit{font-size:9px;color:rgba(0,229,255,0.5)}
+    .charge-bar-wrap{background:rgba(0,20,40,0.7);border:0.5px solid rgba(0,229,255,0.15);border-radius:6px;padding:8px 10px}
+    .charge-bar-label{font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+    .charge-bar-label span{color:#ffe000}
+    .charge-bg{height:5px;background:rgba(0,229,255,0.08);border-radius:3px;overflow:hidden;border:0.5px solid rgba(0,229,255,0.1)}
+    .charge-fill{height:100%;border-radius:3px;transition:width 0.6s ease,background 0.5s}
+    .flow-row{display:flex;align-items:center;gap:4px;margin:2px 0}
+    .flow-dot{width:5px;height:5px;border-radius:50%;background:rgba(0,229,255,0.25);transition:background 0.3s}
+    .flow-dot.lit{background:#ffe000}
+    .flow-line{flex:1;height:1px;background:rgba(0,229,255,0.12);position:relative;overflow:hidden}
+    .flow-pulse{position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,224,0,0.8),transparent);animation:flowpulse 1.8s linear infinite}
+    @keyframes flowpulse{0%{left:-60%}100%{left:100%}}
+    .chipset-panel{background:rgba(0,15,32,0.8);border:0.5px solid rgba(0,229,255,0.18);border-radius:8px;padding:10px 12px;position:relative;overflow:hidden}
+    .chipset-panel::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,229,255,0.02) 0%,transparent 60%);pointer-events:none}
+    .cs-label{font-size:9px;letter-spacing:4px;color:rgba(0,229,255,0.4);text-transform:uppercase;margin-bottom:8px}
+    .cs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    .cs-chip{background:rgba(0,20,45,0.8);border:0.5px solid rgba(0,229,255,0.12);border-radius:5px;padding:6px 7px;position:relative;overflow:hidden;transition:border-color 0.4s,background 0.4s}
+    .cs-chip::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.2),transparent)}
+    .cs-chip-name{font-size:9px;letter-spacing:1px;color:rgba(0,229,255,0.5);text-transform:uppercase;margin-bottom:2px;transition:color 0.4s}
+    .cs-chip-val{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;transition:color 0.4s}
+    .cs-chip-unit{font-size:8px;color:rgba(0,229,255,0.45)}
+    .cs-chip.active{border-color:rgba(255,224,0,0.4);background:rgba(40,30,0,0.6)}
+    .cs-chip.active .cs-chip-name{color:rgba(255,224,0,0.7)}
+    .cs-chip.active .cs-chip-val{color:#ffe000}
+
+    /* === LED === */
+    .led-col{display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:6px}
+    .led-col-label{font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);text-transform:uppercase;text-align:center}
+    .led-panel{background:rgba(0,10,22,0.9);border:0.5px solid rgba(0,229,255,0.18);border-radius:8px;padding:10px 8px;display:flex;flex-direction:column;gap:4px;align-items:center;width:100%}
+    .led-row{display:flex;align-items:center;gap:5px;width:100%}
+    .led-pct{font-size:9px;color:rgba(0,229,255,0.35);width:22px;text-align:right;flex-shrink:0;font-family:'Share Tech Mono',monospace}
+    .led-dot{width:12px;height:12px;border-radius:50%;border:0.5px solid rgba(0,229,255,0.15);background:rgba(0,229,255,0.04);transition:background 0.3s,border-color 0.3s,box-shadow 0.3s;flex-shrink:0}
+    .led-dot.on-green{background:#00e676;border-color:#00e676}
+    .led-dot.on-yellow{background:#aeea00;border-color:#aeea00}
+    .led-dot.on-orange{background:#ffab40;border-color:#ffab40}
+    .led-dot.on-red{background:#ff5252;border-color:#ff5252}
+    .led-dot.target{border-color:#ffe000;border-width:1.5px;animation:targetglow 1s ease-in-out infinite}
+    @keyframes targetglow{0%,100%{box-shadow:0 0 6px rgba(255,224,0,0.6)}50%{box-shadow:0 0 14px rgba(255,224,0,1)}}
+
+    /* === CARDS BOTTOM — crescem pra preencher espaço restante === */
+    .dp-bottom{position:relative;z-index:2;display:flex;gap:8px;flex:1;align-items:stretch;margin-top:12px}
+    .db-card{flex:1;background:rgba(0,15,32,0.75);border:0.5px solid rgba(0,229,255,0.13);border-radius:8px;padding:0 8px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color 0.4s,background 0.4s}
+    .db-label{font-size:9px;letter-spacing:2px;color:rgba(0,229,255,0.38);text-transform:uppercase;margin-bottom:4px}
+    .db-val{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:#fff;letter-spacing:1px;line-height:1;transition:color 0.5s}
+    .db-unit{font-size:9px;color:rgba(0,229,255,0.45);margin-top:2px}
+    .db-card.turbo .db-val{color:#ffe000}
+
+    /* === BOTÕES === */
+    .dp-actions{position:relative;z-index:2;display:flex;gap:10px;flex-shrink:0;margin-top:10px}
+    .dp-btn{flex:1;border:0;border-radius:12px;font-family:'Exo 2',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;padding:14px;cursor:pointer;transition:transform 0.15s,background 0.2s}
+    .dp-btn:active{transform:scale(0.96)}
+    #btn-set{background:rgba(0,229,255,0.12);border:0.5px solid rgba(0,229,255,0.4);color:#00e5ff}
+    #btn-set:active{background:rgba(0,229,255,0.25)}
+    #btn-disable{background:rgba(255,82,82,0.1);border:0.5px solid rgba(255,82,82,0.35);color:#ff5252}
+    #btn-disable:active{background:rgba(255,82,82,0.25)}
+
+    /* === STATUS === */
+    #status{position:relative;z-index:2;text-align:center;font-size:10px;margin-top:8px;padding:9px;border-radius:8px;background:rgba(0,10,22,0.8);border:0.5px solid rgba(0,229,255,0.12);color:rgba(0,229,255,0.6);flex-shrink:0;letter-spacing:1px}
+  </style>
+
+  <script type="module">
+    import { exec, fullScreen } from 'https://cdn.jsdelivr.net/npm/kernelsu@1.0.6/+esm';
+    fullScreen(true);
+
+    const MODDIR = "/data/user_de/0/com.android.shell/axeron/plugins/direct_power";
+    // FIFO removido — HTML escreve direto no arquivo
+    const TARGET_FILE = `${MODDIR}/target_level`;
+    const CTL = `${MODDIR}/ctl.sh`;
+    const statusEl = document.getElementById("status");
+
+    async function getBattery() {
+      const r = await exec("dumpsys battery | grep '  level:'");
+      const m = (r.stdout || "").match(/level:\s*(\d+)/);
+      return m ? parseInt(m[1]) : null;
+    }
+
+    async function getTarget() {
+      const r = await exec(`cat '${TARGET_FILE}' 2>/dev/null`);
+      return parseInt((r.stdout || "0").trim()) || 0;
+    }
+
+    let supported = null;
+    async function checkSupport() {
+      const r = await exec(`sh ${CTL} check`);
+      const out = (r.stdout || "").trim();
+      supported = out.startsWith("OK");
+      if (!supported) {
+        statusEl.textContent = out.startsWith("UNSUPPORTED")
+          ? "⛔ Apenas Galaxy S25 FE (SM-S731x) — detectado: " + out.split(":")[1]
+          : "⛔ Nó batt_slate_mode não encontrado (precisa de root/permissão)";
+        statusEl.style.color = "#ff5252";
+      }
+      return supported;
+    }
+
+    async function updateUI() {
+      if (supported === null) await checkSupport();
+      if (!supported) return;
+      const [battery, target] = await Promise.all([getBattery(), getTarget()]);
+
+      if (battery !== null) {
+        battPct = battery;
+        document.getElementById('battLiquid').style.height = battery + '%';
+        document.getElementById('battPct').textContent = battery + '%';
+        document.getElementById('chargeBarPct').textContent = battery + '%';
+        document.getElementById('chargeFill').style.width = battery + '%';
+      }
+
+      if (target > 0) {
+        targetPct = target;
+        positionThumb(target);
+        if (battery !== null && battery >= target) {
+          await exec(`sh ${CTL} on`);
+          statusEl.textContent = "⚡ DIRECT POWER ATIVO — bateria em " + battery + "% (limite: " + target + "%)";
+          statusEl.style.color = "#7ef07e";
+        } else {
+          await exec(`sh ${CTL} off`);
+          statusEl.textContent = "⏳ Aguardando " + target + "% — bateria em " + (battery ?? "?") + "%";
+          statusEl.style.color = "rgba(0,229,255,0.6)";
+        }
+      } else {
+        statusEl.textContent = "⏸ DESATIVADO";
+        statusEl.style.color = "rgba(223,225,250,0.4)";
+      }
+    }
+
+    document.getElementById("btn-set").onclick = async () => {
+      statusEl.textContent = "Salvando...";
+      statusEl.style.color = "#ffe000";
+      await exec(`echo '${targetPct}' > '${TARGET_FILE}'`);
+      // Ativa pass-through instantaneamente se bateria já >= target
+      const currentLevel = await getBattery();
+      if (currentLevel !== null && currentLevel >= targetPct) {
+        await exec(`sh ${CTL} on`);
+      } else {
+        await exec(`sh ${CTL} off`);
+      }
+      setTimeout(updateUI, 600);
+    };
+
+    document.getElementById("btn-disable").onclick = async () => {
+      statusEl.textContent = "Desativando...";
+      statusEl.style.color = "#ff5252";
+      await exec(`echo '0' > '${TARGET_FILE}'`);
+      await exec(`sh ${CTL} off`);
+      setTimeout(updateUI, 600);
+    };
+
+    updateUI();
+    setInterval(updateUI, 8000);
+  </script>
+</head>
+<body>
+<div class="dp-root" id="dpRoot">
+  <div class="dp-scan"></div>
+
+  <!-- HEADER -->
+  <div class="dp-header">
+    <div class="dp-title-block">
+      <div class="dp-title">⚡ Direct Power</div>
+      <div class="dp-title-sub">TURBO FAST CHARGING · GALAXY S25 FE · EXYNOS 2400e</div>
+    </div>
+    <div class="dp-badge">
+      <div class="dp-badge-dot"></div>
+      <span id="headerState">S25 FE · 45W</span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="dp-body">
+
+    <!-- SLIDER -->
+    <div class="slider-col">
+      <div class="slider-label">LIMIT<br>CARGA</div>
+      <div class="slider-track" id="sliderTrack">
+        <div class="slider-fill" id="sliderFill"></div>
+        <div class="slider-thumb" id="sliderThumb">
+          <span id="thumbVal">70%</span>
+        </div>
+        <span class="slider-tick" style="bottom:calc(100% - 10px)">99</span>
+        <span class="slider-tick" style="bottom:50%">70</span>
+        <span class="slider-tick" style="bottom:8px">40</span>
+      </div>
+      <div class="protect-badge" id="protBadge">🛡 PROTEGIDO</div>
+    </div>
+
+    <!-- CENTRO -->
+    <div class="center-col">
+
+      <div class="batt-section">
+        <div class="batt-wrap">
+          <div class="batt-cap"></div>
+          <div class="batt-body" id="battBody">
+            <div class="batt-liquid" id="battLiquid" style="height:68%"></div>
+            <div class="batt-scan"></div>
+            <div class="ering"></div>
+            <div class="ering"></div>
+            <div class="batt-pct" id="battPct">68%</div>
+            <div class="batt-bolt" id="battBolt">⚡</div>
+          </div>
+          <div style="font-size:9px;letter-spacing:2px;color:rgba(0,229,255,0.4);margin-top:4px;text-align:center">S25<br>FE</div>
+        </div>
+
+        <div class="batt-info">
+          <div class="batt-stat">
+            <div class="bstat-label">Tensão de Entrada</div>
+            <div><span class="bstat-val" id="svolt">9.0</span><span class="bstat-unit"> V</span></div>
+          </div>
+          <div class="batt-stat">
+            <div class="bstat-label">Corrente</div>
+            <div><span class="bstat-val" id="samps">3.8</span><span class="bstat-unit"> A</span></div>
+          </div>
+          <div class="batt-stat">
+            <div class="bstat-label">Potência Turbo</div>
+            <div><span class="bstat-val" id="spow">34.2</span><span class="bstat-unit"> W</span></div>
+          </div>
+          <div class="charge-bar-wrap">
+            <div class="charge-bar-label">
+              <span style="letter-spacing:2px;color:rgba(0,229,255,0.4)">PROGRESSO</span>
+              <span id="chargeBarPct">68%</span>
+            </div>
+            <div class="charge-bg"><div class="charge-fill" id="chargeFill" style="width:68%"></div></div>
+          </div>
+          <div class="batt-stat" style="border-color:rgba(255,224,0,0.2)">
+            <div class="bstat-label">Limite Proteção</div>
+            <div><span class="bstat-val" id="limitDisplay" style="color:#ffe000">70%</span><span class="bstat-unit"> alvo</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-dot lit" id="fd0"></div>
+        <div class="flow-line"><div class="flow-pulse"></div></div>
+        <div class="flow-dot" id="fd1"></div>
+        <div class="flow-line"><div class="flow-pulse" style="animation-delay:0.3s"></div></div>
+        <div class="flow-dot" id="fd2"></div>
+        <div class="flow-line"><div class="flow-pulse" style="animation-delay:0.6s"></div></div>
+        <div class="flow-dot" id="fd3"></div>
+        <div class="flow-line"><div class="flow-pulse" style="animation-delay:0.9s"></div></div>
+        <div class="flow-dot" id="fd4"></div>
+      </div>
+
+      <div class="chipset-panel">
+        <div class="cs-label">Samsung Galaxy Chipset · Exynos 2500</div>
+        <div class="cs-grid">
+          <div class="cs-chip" id="cs0"><div class="cs-chip-name">PMIC</div><div><span class="cs-chip-val" id="cv0">4.38</span><span class="cs-chip-unit">V</span></div></div>
+          <div class="cs-chip" id="cs1"><div class="cs-chip-name">AP Core</div><div><span class="cs-chip-val" id="cv1">1.05</span><span class="cs-chip-unit">V</span></div></div>
+          <div class="cs-chip" id="cs2"><div class="cs-chip-name">GPU Mali</div><div><span class="cs-chip-val" id="cv2">0.92</span><span class="cs-chip-unit">V</span></div></div>
+          <div class="cs-chip" id="cs3"><div class="cs-chip-name">NPU</div><div><span class="cs-chip-val" id="cv3">0.87</span><span class="cs-chip-unit">V</span></div></div>
+          <div class="cs-chip" id="cs4"><div class="cs-chip-name">Modem 5G</div><div><span class="cs-chip-val" id="cv4">3.55</span><span class="cs-chip-unit">V</span></div></div>
+          <div class="cs-chip" id="cs5"><div class="cs-chip-name">RAM LPDDR5</div><div><span class="cs-chip-val" id="cv5">1.11</span><span class="cs-chip-unit">V</span></div></div>
+        </div>
+      </div>
+
+    </div><!-- /center-col -->
+
+    <!-- LED -->
+    <div class="led-col">
+      <div class="led-col-label">LEVEL<br>MONITOR</div>
+      <div class="led-panel" id="ledPanel"></div>
+    </div>
+
+  </div><!-- /dp-body -->
+
+  <!-- CARDS: ocupam o espaço restante entre o body e os botões -->
+  <div class="dp-bottom">
+    <div class="db-card turbo"><div class="db-label">Eficiência</div><div class="db-val" id="dbEffVal">94</div><div class="db-unit">%</div></div>
+    <div class="db-card"><div class="db-label">Temp Bateria</div><div class="db-val" id="dbTempVal">34</div><div class="db-unit">°C</div></div>
+    <div class="db-card"><div class="db-label">Ciclos</div><div class="db-val" id="dbCyclesVal">128</div><div class="db-unit">total</div></div>
+    <div class="db-card"><div class="db-label">ETA</div><div class="db-val" id="dbEtaVal">18</div><div class="db-unit">min</div></div>
+    <div class="db-card"><div class="db-label">Saúde</div><div class="db-val" id="dbHealthVal">98</div><div class="db-unit">%</div></div>
+  </div>
+
+  <!-- BOTÕES -->
+  <div class="dp-actions">
+    <button class="dp-btn" id="btn-set">DEFINIR LIMITE</button>
+    <button class="dp-btn" id="btn-disable">DESATIVAR</button>
+  </div>
+
+  <!-- STATUS -->
+  <div id="status">Carregando dados...</div>
+
+</div><!-- /dp-root -->
+
+<script>
+const LED_LEVELS = [99,95,90,85,80,75,70,65,60,55,50,45,40];
+
+function buildLeds(){
+  const panel = document.getElementById('ledPanel');
+  panel.innerHTML = '';
+  LED_LEVELS.forEach(pct => {
+    const row = document.createElement('div');
+    row.className = 'led-row';
+    row.innerHTML = `<span class="led-pct">${pct}</span><div class="led-dot" id="led${pct}"></div>`;
+    panel.appendChild(row);
+  });
+}
+buildLeds();
+
+let targetPct = 70, battPct = 68, dragging = false;
+const track = document.getElementById('sliderTrack');
+const thumb = document.getElementById('sliderThumb');
+const fill  = document.getElementById('sliderFill');
+
+function pctToRatio(pct){ return (pct - 40) / 59; }
+
+function positionThumb(pct){
+  const trackH = track.clientHeight;
+  const thumbH = thumb.offsetHeight;
+  const usable = trackH - thumbH - 8;
+  const ratio   = pctToRatio(pct);
+  const botPx   = 4 + ratio * usable;
+  thumb.style.bottom = botPx + 'px';
+  fill.style.height  = (botPx + thumbH / 2) + 'px';
+  document.getElementById('thumbVal').textContent     = pct + '%';
+  document.getElementById('limitDisplay').textContent = pct + '%';
+  updateLeds(pct);
+  document.getElementById('protBadge').style.opacity  = pct <= 80 ? '1' : '0.4';
+}
+
+function updateLeds(target){
+  LED_LEVELS.forEach(pct => {
+    const dot = document.getElementById('led' + pct);
+    if(!dot) return;
+    dot.className = 'led-dot';
+    if(pct === target){ dot.classList.add('target','on-'+ledColor(pct)); }
+    else if(pct <= target){ dot.classList.add('on-'+ledColor(pct)); }
+  });
+}
+function ledColor(p){ return p>=85?'red':p>=70?'orange':p>=55?'yellow':'green'; }
+
+function getY(e){ return e.touches ? e.touches[0].clientY : e.clientY; }
+
+thumb.addEventListener('mousedown', e=>{ dragging=true; e.preventDefault&&e.preventDefault(); });
+thumb.addEventListener('touchstart', e=>{ dragging=true; e.preventDefault&&e.preventDefault(); }, {passive:false});
+document.addEventListener('mouseup',  ()=>dragging=false);
+document.addEventListener('touchend', ()=>dragging=false);
+
+function calcPct(e){
+  const rect  = track.getBoundingClientRect();
+  const usable = track.clientHeight - thumb.offsetHeight - 8;
+  const fromBot = track.clientHeight - (getY(e) - rect.top) - thumb.offsetHeight/2 - 4;
+  return Math.max(40, Math.min(99, Math.round(40 + Math.max(0,Math.min(1, fromBot/usable)) * 59)));
+}
+document.addEventListener('mousemove', e=>{ if(dragging){ targetPct=calcPct(e); positionThumb(targetPct); }});
+document.addEventListener('touchmove', e=>{ if(dragging){ targetPct=calcPct(e); positionThumb(targetPct); }},{passive:true});
+track.addEventListener('click', e=>{ targetPct=calcPct(e); positionThumb(targetPct); });
+
+function rnd(a,b){ return a+Math.random()*(b-a); }
+const chipBase=[4.38,1.05,0.92,0.87,3.55,1.11];
+const chipMult=[0.04,0.02,0.015,0.012,0.04,0.015];
+
+function updateVisuals(){
+  const charging = battPct < targetPct;
+  const pr = Math.round(battPct);
+
+  document.getElementById('battLiquid').style.background =
+    pr<40 ? 'linear-gradient(180deg,rgba(229,57,53,0.6) 0%,rgba(180,0,0,0.8) 100%)'
+    : pr<70 ? 'linear-gradient(180deg,rgba(0,229,255,0.5) 0%,rgba(0,180,80,0.85) 100%)'
+    : 'linear-gradient(180deg,rgba(255,224,0,0.5) 0%,rgba(0,200,100,0.8) 100%)';
+
+  document.getElementById('chargeFill').style.background = pr>=targetPct
+    ? 'linear-gradient(90deg,#00e676,#aeea00)'
+    : pr>80 ? 'linear-gradient(90deg,#ffe000,#ff6600)'
+    : 'linear-gradient(90deg,#00e5ff,#ffe000)';
+
+  const v = charging ? +(9.0+rnd(-0.1,0.1)).toFixed(1) : +(5.0+rnd(-0.05,0.05)).toFixed(1);
+  const a = charging ? +(3.8-(pr/100*1.2)+rnd(-0.1,0.1)).toFixed(1) : +(0.5+rnd(-0.05,0.05)).toFixed(1);
+  const p = +(v*a).toFixed(1);
+  document.getElementById('svolt').textContent = v.toFixed(1);
+  document.getElementById('samps').textContent = a.toFixed(1);
+  document.getElementById('spow').textContent  = p.toFixed(1);
+
+  document.getElementById('headerState').textContent = charging
+    ? (p>25?'45W TURBO':p>10?'25W SUPER':'15W FAST') + ' · ' + pr + '%'
+    : 'PROTEÇÃO ATIVA · ' + pr + '%';
+
+  for(let i=0;i<6;i++){
+    const act = charging && Math.random()>0.3;
+    const cs=document.getElementById('cs'+i), cv=document.getElementById('cv'+i);
+    cv.textContent=(chipBase[i]+(act?rnd(-chipMult[i],chipMult[i]):rnd(-chipMult[i]*0.3,chipMult[i]*0.3))).toFixed(2);
+    act ? cs.classList.add('active') : cs.classList.remove('active');
+  }
+
+  const lit = charging ? Math.round(rnd(2,5)) : 1;
+  for(let i=0;i<5;i++) document.getElementById('fd'+i).classList.toggle('lit',i<lit);
+
+  const temp = Math.round(28+(charging?p*0.18:2)+rnd(-0.5,0.5));
+  const eff  = Math.round(charging?92+rnd(-2,4):99);
+  const eta  = charging ? Math.max(1,Math.round((targetPct-pr)/0.35/60*1.1)) : 0;
+  document.getElementById('dbTempVal').textContent  = temp;
+  document.getElementById('dbEffVal').textContent   = eff;
+  document.getElementById('dbEtaVal').textContent   = eta>0?eta:'--';
+  document.getElementById('dbTempVal').style.color  = temp>42?'#ff5252':temp>36?'#ffab40':'#fff';
+  document.getElementById('dbEffVal').style.color   = eff>=95?'#00e676':'#ffe000';
+}
+
+setTimeout(()=>{ positionThumb(targetPct); updateVisuals(); }, 150);
+setInterval(updateVisuals, 900);
+</script>
+</body>
+</html>
